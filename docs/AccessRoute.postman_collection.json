@@ -1,0 +1,52 @@
+{
+  "info": {
+    "_postman_id": "76872c4e-a67c-4ea4-9e09-3d91825a114e",
+    "name": "AccessRoute Campus Navigator",
+    "description": "API checks for the Campus Location and Route & Accessibility microservices. Run against local Docker Compose or update collection variables to your deployed URLs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "locationUrl", "value": "http://localhost:4001" },
+    { "key": "routeUrl", "value": "http://localhost:8000" },
+    { "key": "studentEmail", "value": "" },
+    { "key": "studentPassword", "value": "CampusDemo#4821" },
+    { "key": "studentToken", "value": "" },
+    { "key": "locationId", "value": "created-location-id" },
+    { "key": "pathId", "value": "created-path-id" }
+  ],
+  "item": [
+    {
+      "name": "Student authentication",
+      "item": [
+        { "name": "Register a student (creates a temporary test account)", "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('studentEmail', `student.${Date.now()}@example.edu`);"] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.collectionVariables.set('studentToken', pm.response.json().token);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Demo Student\",\n  \"studentId\": \"DEMO-1001\",\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}" }, "url": "{{locationUrl}}/api/auth/register" } },
+        { "name": "Sign in student", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) pm.collectionVariables.set('studentToken', pm.response.json().token);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}" }, "url": "{{locationUrl}}/api/auth/login" } },
+        { "name": "Validate current session", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }], "url": "{{locationUrl}}/api/auth/me" } },
+        { "name": "Reject incorrect password (expect 401)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"incorrect-password\"\n}" }, "url": "{{locationUrl}}/api/auth/login" } }
+      ]
+    },
+    {
+      "name": "Location service",
+      "item": [
+        { "name": "Health and MongoDB", "request": { "method": "GET", "url": "{{locationUrl}}/api/health" } },
+        { "name": "List locations", "request": { "method": "GET", "url": "{{locationUrl}}/api/locations" } },
+        { "name": "List pathways including blocked", "request": { "method": "GET", "url": "{{locationUrl}}/api/paths?includeBlocked=true" } },
+        { "name": "Create location", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.collectionVariables.set('locationId', pm.response.json().id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Demo Study Room\",\n  \"type\": \"building\",\n  \"description\": \"Temporary API test location\",\n  \"x\": 58,\n  \"y\": 82,\n  \"accessible\": true\n}" }, "url": "{{locationUrl}}/api/locations" } },
+        { "name": "Get location by id", "request": { "method": "GET", "url": "{{locationUrl}}/api/locations/{{locationId}}" } },
+        { "name": "Update location", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"North Gate\",\n  \"type\": \"entrance\",\n  \"description\": \"Main step-free campus entrance\",\n  \"x\": 11,\n  \"y\": 48,\n  \"accessible\": true\n}" }, "url": "{{locationUrl}}/api/locations/{{locationId}}" } },
+        { "name": "Create pathway", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) pm.collectionVariables.set('pathId', pm.response.json().id);"] } }], "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"from\": \"north-gate\",\n  \"to\": \"library\",\n  \"distance\": 280,\n  \"surface\": \"paved\",\n  \"stairs\": false,\n  \"ramp\": true,\n  \"elevator\": false,\n  \"blocked\": false,\n  \"label\": \"Demo accessible connector\"\n}" }, "url": "{{locationUrl}}/api/paths" } },
+        { "name": "Update pathway", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"from\": \"north-gate\",\n  \"to\": \"student-center\",\n  \"distance\": 185,\n  \"surface\": \"paved\",\n  \"stairs\": false,\n  \"ramp\": true,\n  \"elevator\": false,\n  \"blocked\": false,\n  \"label\": \"North Walk\"\n}" }, "url": "{{locationUrl}}/api/paths/{{pathId}}" } },
+        { "name": "Delete pathway", "request": { "method": "DELETE", "url": "{{locationUrl}}/api/paths/{{pathId}}" } },
+        { "name": "Delete location", "request": { "method": "DELETE", "url": "{{locationUrl}}/api/locations/{{locationId}}" } }
+      ]
+    },
+    {
+      "name": "Route & Accessibility service",
+      "item": [
+        { "name": "Health and inter-service connection", "request": { "method": "GET", "url": "{{routeUrl}}/health" } },
+        { "name": "Fetch locations via route service", "request": { "method": "GET", "url": "{{routeUrl}}/api/locations" } },
+        { "name": "Calculate stair-free route", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"from\": \"north-gate\",\n  \"to\": \"library\",\n  \"preferences\": {\n    \"avoidStairs\": true,\n    \"preferRamps\": true,\n    \"preferElevators\": true\n  }\n}" }, "url": "{{routeUrl}}/api/routes" } },
+        { "name": "Invalid location example (expect 404)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"from\": \"not-a-campus-location\",\n  \"to\": \"library\",\n  \"preferences\": { \"avoidStairs\": true }\n}" }, "url": "{{routeUrl}}/api/routes" } }
+      ]
+    }
+  ]
+}

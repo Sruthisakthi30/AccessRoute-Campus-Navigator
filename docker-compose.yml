@@ -1,0 +1,46 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - accessroute-data:/data/db
+    ports:
+      - "27017:27017"
+  location:
+    build: ./services/location
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017}
+      DB_NAME: ${DB_NAME:-accessroute}
+      JWT_SECRET: ${JWT_SECRET:-accessroute-local-development-secret-change-before-deploying}
+      PORT: ${LOCATION_PORT:-4001}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
+    ports:
+      - "4001:4001"
+    depends_on:
+      - mongo
+  routes:
+    build: ./services/routes
+    restart: unless-stopped
+    environment:
+      LOCATION_SERVICE_URL: ${LOCATION_SERVICE_URL:-http://location:4001}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
+      PORT: ${ROUTE_PORT:-8000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - location
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_ROUTE_API_URL: ${VITE_ROUTE_API_URL:-http://localhost:8000}
+        VITE_LOCATION_API_URL: ${VITE_LOCATION_API_URL:-http://localhost:4001}
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+    depends_on:
+      - routes
+      - location
+volumes:
+  accessroute-data:
